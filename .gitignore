@@ -1,1 +1,12 @@
 .venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+mlflow.db
+mlruns/
+
+data/
+models/
+
+*.html
