@@ -15,5 +15,8 @@ joblib==1.4.2
 ucimlrepo==0.0.7
 nbformat==5.10.4
 sqlalchemy==2.0.36
-fastapi==0.115.6
+fastapi==0.140.3
 uvicorn[standard]==0.34.0
+starlette==1.7.0
+streamlit
+requests
