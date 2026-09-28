@@ -1,12 +1,30 @@
+# Python virtual environment
 .venv/
+
+# Python cache
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Jupyter
 .ipynb_checkpoints/
 
+# MLflow
 mlflow.db
 mlruns/
 
+# Local data and trained models
 data/
 models/
 
+# Model artifacts
+artifacts/
+
+# Generated reports
 *.html
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
