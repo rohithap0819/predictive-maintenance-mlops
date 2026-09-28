@@ -52,6 +52,8 @@ def client(monkeypatch):
     # Replace joblib.load during API import.
     monkeypatch.setattr(joblib, "load", fake_load)
 
+    monkeypatch.setenv("TESTING", "1")
+
     api_main = importlib.import_module("api.main")
     api_main = importlib.reload(api_main)
 

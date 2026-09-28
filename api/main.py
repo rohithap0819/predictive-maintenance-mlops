@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import joblib
@@ -26,23 +27,30 @@ METADATA_PATH = PROJECT_ROOT / "models" / "best_model_metadata.pkl"
 # LOAD MODEL
 # ============================================================
 
-if not MODEL_PATH.exists():
-    raise FileNotFoundError(
-        f"Model not found: {MODEL_PATH}"
-    )
+TESTING = os.getenv("TESTING", "0") == "1"
 
-if not TYPE_ENCODER_PATH.exists():
-    raise FileNotFoundError(
-        f"Type encoder not found: {TYPE_ENCODER_PATH}"
-    )
+
+if not TESTING:
+
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(
+            f"Model not found: {MODEL_PATH}"
+        )
+
+    if not TYPE_ENCODER_PATH.exists():
+        raise FileNotFoundError(
+            f"Type encoder not found: {TYPE_ENCODER_PATH}"
+        )
+
+    if not METADATA_PATH.exists():
+        raise FileNotFoundError(
+            f"Model metadata not found: {METADATA_PATH}"
+        )
+
 
 model = joblib.load(MODEL_PATH)
 type_encoder = joblib.load(TYPE_ENCODER_PATH)
-
-metadata = {}
-
-if METADATA_PATH.exists():
-    metadata = joblib.load(METADATA_PATH)
+metadata = joblib.load(METADATA_PATH)
 
 
 # ============================================================
