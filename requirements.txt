@@ -20,3 +20,4 @@ uvicorn[standard]==0.34.0
 starlette==1.7.0
 streamlit
 requests
+pytest
