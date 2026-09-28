@@ -1,591 +1,1084 @@
-MLOps Assignment Guide
-Predictive Maintenance Classification with Local MLOps
-This document is a learner support guide for the MLOps assignment.
+# Predictive Maintenance MLOps
 
-Use it together with:
+[![CI](https://github.com/rohithap0819/predictive-maintenance-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/rohithap0819/predictive-maintenance-mlops/actions/workflows/ci.yml)
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/rohithap0819/predictive-maintenance-mlops)
+[![Live Dashboard](https://img.shields.io/badge/Live-Streamlit%20Dashboard-red?logo=streamlit)](https://predictive-maintenance-mlops-1.onrender.com)
+[![Live API](https://img.shields.io/badge/Live-FastAPI%20Docs-009688?logo=fastapi)](https://predictive-maintenance-mlops-n716.onrender.com/docs)
+[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?logo=docker)](https://www.docker.com/)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
-Starter Notebook
+An end-to-end **Machine Learning Operations (MLOps)** project for multiclass predictive maintenance. The system takes industrial machine sensor readings, predicts machine failure modes, exposes predictions through a FastAPI service, visualizes them through a Streamlit dashboard, tracks experiments with MLflow, tunes the final model with Optuna, monitors production drift with Evidently, explains predictions with SHAP, packages the model as a versioned artifact, containerizes the application with Docker, validates changes with automated tests, and deploys the application to Render.
 
-It is designed to help you understand:
+---
 
-the business problem
+# 🚀 Live Demo
 
-the goals of each section
+### Streamlit Dashboard
 
-the exact tasks you need to complete
+**https://predictive-maintenance-mlops-1.onrender.com**
 
-the rubric expectations
+Use the dashboard to:
 
-what is already provided to you
+- Enter machine sensor readings
+- Generate failure predictions
+- Inspect class probabilities
+- View engineered features
+- Inspect model information
+- Review current and stress drift reports
+- View SHAP explainability results
 
-what you must submit
+### FastAPI
 
-Quick Start
-What Has Already Been Done For You
-To keep the assignment manageable, the following parts are already provided:
+**https://predictive-maintenance-mlops-n716.onrender.com**
 
-the dataset has already been prepared and split
+### Interactive API Documentation
 
-the stable and stress post-deployment batches are already available
+**https://predictive-maintenance-mlops-n716.onrender.com/docs**
 
-the starter notebook already contains the full section structure
+The FastAPI service provides:
 
-prompts and TODO placeholders are already written
+- `GET /health`
+- `GET /model-info`
+- `POST /predict`
+- `GET /`
 
-the grading rubric is already defined
+> The Render free tier may spin services down after inactivity, so the first request after a period of inactivity can take longer than subsequent requests.
 
-the dependency versions are already pinned for reproducibility
+---
 
-MLflow tracking is preconfigured in the starter notebook using mlflow.set_tracking_uri("sqlite:///mlflow.db")
+# 📌 Project Overview
 
-So your work should focus on:
-
-implementing the analysis correctly
-
-logging and monitoring properly
-
-interpreting the outputs clearly
-
-writing strong conclusions
-
-Main Submission
-Primary submission:
-
-Starter Notebook
-
-Make sure it is completed, fully executed, and saved with outputs visible.
-
-1. Problem Statement
 A heavy-equipment manufacturer wants to reduce unplanned machine downtime.
-Each machine streams sensor readings, and the goal is to classify whether the
-machine is operating normally or is heading toward one of four failure modes.
 
-You have been given:
+Each machine produces sensor measurements such as temperature, rotational speed, torque, and tool wear. The goal is to classify whether a machine is operating normally or is heading toward one of four failure modes.
+
+### Failure classes
+
+| Class ID | Failure Type |
+|---:|---|
+| 0 | No Failure |
+| 1 | TWF |
+| 2 | HDF |
+| 3 | PWF |
+| 4 | OSF |
+
+The project follows the complete MLOps workflow:
+
+```text
+Validate
+   ↓
+Train
+   ↓
+Track
+   ↓
+Tune
+   ↓
+Monitor
+   ↓
+Explain
+   ↓
+Decide
+```
+
+---
+
+# 🏗️ Architecture
+
+```mermaid
+flowchart LR
+
+    A[Machine Sensor Data] --> B[Data Validation]
+    B --> C[Feature Engineering]
+    C --> D[Train / Validation Split]
+    D --> E[SMOTE on Training Only]
+
+    E --> F[Model Selection]
+    F --> G[MLflow Tracking]
+    G --> H[Optuna Tuning]
+    H --> I[XGBoost Final Model]
+
+    I --> J[Model Artifact v1.0.0]
+    J --> K[GitHub Release]
+
+    K --> L[Docker API Image]
+    L --> M[FastAPI]
+
+    M --> N[Streamlit Dashboard]
+
+    O[Current Batch] --> P[Evidently Drift]
+    Q[Stress Batch] --> P
+
+    I --> R[SHAP Explainability]
+    P --> S[Retraining Decision]
+    R --> S
+
+    T[GitHub Actions] --> U[Automated Tests]
+```
+
+---
+
+# 🔄 End-to-End Deployment Flow
+
+```text
+Developer
+   │
+   ▼
+GitHub Repository
+   │
+   ├── GitHub Actions
+   │       └── pytest
+   │
+   ├── Model Release v1.0.0
+   │       └── predictive-maintenance-model.zip
+   │
+   ▼
+Docker Build
+   │
+   ├── FastAPI container
+   │       └── Downloads model artifact
+   │
+   └── Streamlit container
+   │
+   ▼
+Render
+   │
+   ├── FastAPI Web Service
+   │       └── XGBoost prediction API
+   │
+   └── Streamlit Web Service
+           └── Interactive dashboard
+```
 
-historical labelled training data
+---
 
-a stable post-deployment batch
+# 📂 Dataset
 
-a shifted stress batch from a heavy-load production period
+The project uses three datasets with different operational roles.
 
-Your task is to build a local MLOps workflow that:
+| Dataset | Role |
+|---|---|
+| `train.csv` | Historical labelled baseline used for training and validation |
+| `current.csv` | Stable post-deployment production batch |
+| `stress.csv` | Valid but distributionally shifted heavy-load batch |
 
-validates the data before modeling
+The important MLOps distinction is:
 
-compares and tracks candidate models
+```text
+Schema validity ≠ Distribution stability
+```
 
-tunes and registers the best model
+The stress dataset is intentionally valid data that can still exhibit meaningful drift.
 
-monitors incoming batches for drift
+### Raw columns
 
-explains model predictions
+```text
+Type
+Air temperature
+Process temperature
+Rotational speed
+Torque
+Tool wear
+Failure_Type
+```
 
-recommends retraining when monitoring shows risk
+---
 
-2. Assignment Goals
-By the end of this assignment, you should be able to:
+# 🔧 Feature Engineering
 
-validate tabular data with Pandera
+Two domain-inspired features are created.
 
-handle class imbalance correctly
+### Mechanical Power
 
-compare multiple models fairly using MLflow
+```text
+Power_W = Torque × (2π × Rotational Speed / 60)
+```
 
-tune the strongest model with Optuna
+### Temperature Difference
 
-detect drift with Evidently
+```text
+Temp_diff = Process temperature - Air temperature
+```
 
-interpret a multiclass tree model with SHAP
+The final feature set used by the model includes:
 
-connect technical outputs to engineering decisions
+```text
+Type_Code
+Air temperature
+Process temperature
+Rotational speed
+Torque
+Tool wear
+Power_W
+Temp_diff
+```
 
-This assignment is not only about getting a good classifier.
-It is about showing that you understand the full MLOps loop:
+---
 
-validate -> train -> track -> tune -> monitor -> explain -> decide
+# ✅ Data Validation
 
-3. Files Already Provided
-These are already done for you:
+Pandera is used to validate the raw datasets before modeling.
 
-train.csv
-Historical labelled baseline data
+Validation covers:
 
-current.csv
-Stable post-deployment batch
+- Required columns
+- Data types
+- Machine type categories
+- Failure class values
+- Validation of `train.csv`
+- Validation of `current.csv`
+- Validation of `stress.csv`
 
-stress.csv
-Shifted heavy-load batch
+The stress batch is expected to remain schema-valid while showing distributional drift.
 
-requirements.txt
-Pinned environment for deterministic execution
+---
 
-Starter Notebook
-The notebook you must complete and submit
+# ⚖️ Class Imbalance
 
-4. What the Data Represents
-The three datasets play different roles:
+The target is highly imbalanced.
 
-train.csv
-Historical baseline used for training and validation
+Training class counts include:
 
-current.csv
-A normal incoming production batch
-Expected story: mostly stable relative to training
+| Failure Type | Real Training Samples |
+|---|---:|
+| No Failure | 6,762 |
+| TWF | 30 |
+| HDF | 76 |
+| PWF | 56 |
+| OSF | 69 |
 
-stress.csv
-A heavier-load post-deployment batch
-Expected story: operationally valid data, but distributionally shifted
+This imbalance makes plain accuracy an unsuitable primary model-selection metric.
 
-Important:
+### Imbalance strategy
 
-stress.csv is intended to be valid but drifted
+1. Stratified 80/20 train-validation split
+2. SMOTE applied **only to the training split**
+3. `k_neighbors=3`
+4. Validation set remains untouched
 
-this means Pandera may still pass it
+This avoids validation leakage while improving representation of minority classes during training.
 
-the drift is expected to show up in Evidently, not necessarily in schema validation
+---
 
-That distinction is one of the key lessons of the assignment.
+# 🤖 Model Selection
 
-5. What the Starter Notebook Looks Like
-The starter notebook already contains the full structure you should follow.
+Four candidate classifiers are trained and tracked with MLflow:
 
-Main sections:
+- Logistic Regression
+- Random Forest
+- XGBoost
+- LightGBM
 
-Data Loading, Schema Validation & EDA
+The primary evaluation metric is:
 
-Experiment Tracking & Model Selection
+```text
+Macro F1
+```
 
-Drift Detection & Monitoring
+Macro F1 is used because it gives equal importance to each failure class instead of allowing the majority class to dominate the evaluation.
 
-Explainability & Insights
+## Baseline comparison
 
-Conclusions
+| Model | Macro F1 | Accuracy |
+|---|---:|---:|
+| XGBoost | 0.7500 | 0.9850 |
+| Random Forest | 0.7355 | 0.9850 |
+| LightGBM | 0.7296 | 0.9843 |
+| Logistic Regression | 0.5312 | 0.9042 |
 
-Sub-sections in the starter notebook:
+XGBoost was selected as the strongest baseline candidate by macro F1 and subsequently tuned with Optuna.
 
-Section 1
-1.1 Load the datasets
+> Accuracy remains useful as a secondary metric, but it is not the primary selection criterion because the problem contains severe class imbalance.
 
-1.2 Define and apply a Pandera schema
+---
 
-1.3 Exploratory Data Analysis
+# 🎯 Hyperparameter Optimization
 
-1.4 Feature Engineering
+Optuna is used to tune the XGBoost model.
 
-Section 2
-2.1 Setup: features, split, SMOTE
+The optimization objective is:
 
-2.2 Train and log 4 models with MLflow
+```text
+Validation Macro F1
+```
 
-2.3 Optuna tuning + MLflow Model Registry
+The study searches parameters including:
 
-Section 3
-3.1 Evidently - current batch
+- `n_estimators`
+- `max_depth`
+- `learning_rate`
+- `min_child_weight`
+- `subsample`
+- `colsample_bytree`
+- `gamma`
+- `reg_alpha`
+- `reg_lambda`
 
-3.2 Evidently - stress batch
+The tuned model is logged to MLflow and registered as the final model.
 
-3.3 Retraining decision
+---
 
-Section 4
-4.1 SHAP analysis per failure class
+# 🧪 MLflow Experiment Tracking
 
-4.2 Engineering insight
+MLflow is used for:
 
-Section 5
-5.1 Key findings
+- Experiment tracking
+- Parameter logging
+- Metric logging
+- Per-class F1 logging
+- Model artifact logging
+- Model registration
 
-Final conclusions block
+The training workflow records:
 
-The notebook already gives you:
+```text
+Model parameters
+Validation metrics
+Macro F1
+Weighted F1
+Accuracy
+Per-class F1
+Model artifacts
+```
 
-imports
+---
 
-section prompts
+# 📦 Model Versioning
 
-TODO scaffolding
+The deployable model is packaged as:
 
-the required structure
+```text
+predictive-maintenance-model.zip
+```
 
-So your job is to fill in the logic, not redesign the notebook.
+The package contains:
 
-6. Stage-Wise Tasks
-Stage 1: Data Loading, Schema Validation & EDA
-Goal
-Understand the data and prove that it is safe to use.
-
-What you need to do
-load all three CSV files
-
-print shapes
-
-display the training sample
-
-define the Pandera schema for the 7 raw columns
-
-validate train, current, and stress
-
-inspect class imbalance
-
-plot key distributions
-
-engineer Power_W and Temp_diff
-
-What you should notice
-the target is highly imbalanced
-
-some failure types are very rare
-
-the engineered features add useful physical meaning
-
-Common mistakes
-validating before fixing integer dtypes
-
-forgetting to validate stress
-
-computing engineered features for only one dataset
-
-Stage 2: Experiment Tracking & Model Selection
-Goal
-Compare multiple models fairly, handle imbalance, and tune the strongest candidate.
-
-What you need to do
-encode the Type column
-
-create X and y
-
-perform a stratified 80/20 train-validation split
-
-apply SMOTE only on the training split
-
-train 4 models
-
-log all runs to MLflow
-
-compare them using macro_f1
-
-tune the strongest tree model with Optuna
-
-register the tuned best model in MLflow
-
-What you should notice
-accuracy is not a good selection metric here
-
-macro_f1 is much more meaningful
-
-the rarest class remains the hardest
-
-Common mistakes
-applying SMOTE before the split
-
-using default k_neighbors instead of 3
-
-choosing the winner based on accuracy
-
-logging incomplete metrics
-
-Stage 3: Drift Detection & Monitoring
-Goal
-Show how a model behaves after deployment when new data arrives.
-
-What you need to do
-compare a basic statistic first (for example mean Rotational speed) between current.csv and stress.csv
-
-run Evidently on current.csv
-
-save drift_current.html
-
-state whether dataset drift is present
-
-run Evidently on stress.csv
-
-save drift_stress.html
-
-print per-feature drift details
-
-decide whether retraining is needed
-
-What you should notice
-current.csv should look relatively stable
-
-stress.csv should show meaningful drift
-
-drift should be concentrated in operationally important features
-
-this stage is a diagnosis task: explain why the model is stale on stress.csv, not how to force better stress-batch accuracy
-
-Common mistakes
-only saving the HTML without interpreting it
-
-mixing up reference and current datasets
-
-making a retraining recommendation without connecting it to evidence
-
-Stage 4: Explainability & Insights
-Goal
-Explain the final tuned model in engineering terms.
-
-What you need to do
-load the saved best model
-
-compute SHAP values
-
-create a 4-panel multiclass SHAP plot
-
-save shap_per_class.png
-
-identify the top driver for each failure class
-
-explain the physical meaning of important features
-
-What you should notice
-each failure type is driven by a different pattern
-
-derived features are important, not just raw sensor columns
-
-explainability should support the retraining decision
-
-multiclass SHAP should be interpreted per class; do not collapse all classes into one global ranking
-
-Common mistakes
-treating multiclass SHAP like binary SHAP
-
-giving generic explanations instead of class-specific ones
-
-forgetting to save the SHAP figure
-
-Stage 5: Conclusions
-Goal
-Summarize the assignment like a production engineering case.
-
-What you need to do
-Write a conclusion covering:
-
-which model won and why
-
-why accuracy is misleading
-
-why the weakest class remains difficult
-
-what drifted in the stress batch
-
-one actionable engineering recommendation
-
-What makes a strong conclusion
-references actual results from your notebook
-
-mentions the correct metric
-
-connects model behavior to operations
-
-uses evidence from SHAP and drift outputs
-
-frames TWF underperformance as a data scarcity issue (30 real samples), even if tuned TWF F1 remains 0.0
-
-7. Rubric Summary
-Total marks: 50
-
-Section 1: Data Loading, Validation and EDA - 15 marks
-Load datasets correctly: 3
-
-Define schema: 3
-
-Validate datasets correctly: 2
-
-Class distribution + chart: 2
-
-Distribution plots: 2
-
-Compute Power_W: 2
-
-Compute Temp_diff + grouped means: 1
-
-Section 2: Experiment Tracking and Model Selection - 15 marks
-Split + SMOTE setup: 2
-
-Log all 4 models to MLflow: 3
-
-Log metrics correctly: 3
-
-Print comparison + identify best model: 2
-
-Run Optuna study: 3
-
-Register tuned model in MLflow: 2
-
-Section 3: Drift Detection and Monitoring - 10 marks
-Current batch monitoring: 4
-
-Stress batch monitoring: 4
-
-Retraining decision: 2
-
-Section 4: Explainability and Insights - 5 marks
-SHAP per class: 3
-
-Engineering interpretation: 2
-
-Section 5: Conclusions - 5 marks
-Winning model and why: 1
-
-Why accuracy is misleading: 1
-
-Weakest class insight: 1
-
-Stress drift implication: 1
-
-Actionable recommendation: 1
-
-8. Common Errors and How To Avoid Them
-These are the most common ways learners lose marks.
-
-Error 1: Using accuracy as the main selection metric
-Why it is a problem:
-
-the dataset is highly imbalanced
-
-a model can look strong on accuracy while still missing rare failures
-
-How to avoid it:
-
-use macro_f1 for model comparison
-
-discuss accuracy only as a secondary metric
-
-Error 2: Applying SMOTE before the split
-Why it is a problem:
-
-it leaks synthetic information into validation
-
-it makes evaluation unreliable
-
-How to avoid it:
-
-split first
-
-apply SMOTE only on the training split
-
-Error 3: Forgetting k_neighbors=3
-Why it is a problem:
-
-the rarest class is very small
-
-default SMOTE settings can fail or behave poorly
-
-How to avoid it:
-
-explicitly set k_neighbors=3
-
-Error 4: Treating stress.csv as invalid data
-Why it is a problem:
-
-the stress batch is meant to be valid but drifted
-
-drift and schema violations are not the same thing
-
-How to avoid it:
-
-explain that Pandera checks validity
-
-explain that Evidently checks distribution shift
-
-Error 5: Fitting encoders separately on each dataset
-Why it is a problem:
-
-category mappings can become inconsistent
-
-How to avoid it:
-
-fit on train
-
-transform current and stress with the same encoder
-
-Error 6: Logging incomplete model runs
-Why it is a problem:
-
-the rubric checks experiment tracking, not just raw training
-
-How to avoid it:
-
-log each model run
-
-log model name, aggregate metrics, and per-class F1
-
-Error 7: Writing generic conclusions
-Why it is a problem:
-
-the assignment expects evidence-based interpretation
-
-How to avoid it:
-
-reference your own drift results
-
-reference your own SHAP findings
-
-reference the actual winning model and metric values
-
-9. What Artifacts You Need To Produce
-These artifacts should be created during notebook execution:
-
-eda_distributions.png
-
-drift_current.html
-
-drift_stress.html
-
+```text
 best_model.pkl
+type_encoder.pkl
+best_model_metadata.pkl
+```
 
-label_encoder.pkl
+The first production artifact is versioned as:
 
-shap_per_class.png
+```text
+v1.0.0
+```
 
-These are generated outputs, not separate submission files unless your evaluator specifically asks for them.
+GitHub Release:
 
-10. What You Need To Submit
-Primary submission:
+**https://github.com/rohithap0819/predictive-maintenance-mlops/releases/tag/v1.0.0**
 
-Starter Notebook
+The trained `.pkl` files and local artifact ZIP are intentionally excluded from Git.
 
-Your notebook should be completed, fully executed, and saved with outputs visible.
+Instead:
 
-11. Key Lessons To Keep In Mind
-If you feel lost, come back to these:
+```text
+Training
+   ↓
+Model artifacts
+   ↓
+GitHub Release v1.0.0
+   ↓
+Docker build downloads artifact
+   ↓
+FastAPI loads model
+```
 
-valid data can still be drifted data
+This keeps the Git repository focused on source code while making the deployed model reproducible and versioned.
 
-accuracy can be misleading in rare-failure classification
+---
 
-SMOTE helps, but it cannot fully solve real data scarcity
+# 🌐 FastAPI
 
-drift monitoring becomes useful when connected to business action
+The prediction API is built with FastAPI.
 
-explainability is not decoration; it supports the retraining decision
+### Endpoints
 
-In this assignment, the clearest example of that scarcity issue is TWF:
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/health` | Service health check |
+| `GET` | `/model-info` | Model metadata |
+| `POST` | `/predict` | Machine failure prediction |
+| `GET` | `/` | API root |
 
-it has very few real training examples
+### Example request
 
-SMOTE helps rebalance the training split
+```json
+{
+  "type": "L",
+  "air_temperature": 300.0,
+  "process_temperature": 315.0,
+  "rotational_speed": 1200,
+  "torque": 70.0,
+  "tool_wear": 240
+}
+```
 
-but SMOTE cannot create the full real-world diversity of a rare failure mode
+### Example prediction response
 
-so it is normal for TWF to remain the weakest class
+```json
+{
+  "prediction": "OSF",
+  "class_id": 4,
+  "probabilities": {
+    "No Failure": 0.000078,
+    "TWF": 0.000042,
+    "HDF": 0.000002,
+    "PWF": 0.000003,
+    "OSF": 0.999876
+  },
+  "engineered_features": {
+    "Power_W": 8796.459,
+    "Temp_diff": 15.0
+  }
+}
+```
 
-12. Final Checklist Before Submission
-Before submitting, make sure:
+---
 
-all cells executed successfully
+# 📊 Streamlit Dashboard
 
-all required plots/files were saved
+The Streamlit dashboard provides four sections.
 
-MLflow runs were created
+## 1. Prediction
 
-your winner model is chosen using macro_f1
+Users can enter:
 
-your stress-batch discussion names the important drifted features
+- Machine type
+- Air temperature
+- Process temperature
+- Rotational speed
+- Torque
+- Tool wear
 
-your retraining recommendation uses both drift evidence and SHAP evidence
+The dashboard sends the input to FastAPI and displays:
 
-your conclusion is specific, not generic
+- Predicted failure class
+- Class ID
+- Failure probabilities
+- Engineered features
+- Raw API response
 
-Good Luck!
+## 2. Model Information
 
+Displays model information retrieved from the FastAPI service.
+
+## 3. Drift Monitoring
+
+Provides:
+
+- Current batch Evidently report
+- Stress batch Evidently report
+- Feature-level drift results
+
+## 4. Explainability
+
+Provides:
+
+- SHAP feature importance by failure class
+- SHAP feature summary table
+
+---
+
+# 📈 Drift Monitoring
+
+Evidently is used to monitor production distribution changes.
+
+Two post-deployment scenarios are evaluated:
+
+### Current batch
+
+Represents a normal incoming production batch and is expected to remain relatively stable compared with training data.
+
+### Stress batch
+
+Represents a heavy-load production scenario and is intentionally distributionally shifted.
+
+The monitoring workflow produces:
+
+```text
+reports/drift_current.html
+reports/drift_current_features.csv
+
+reports/drift_stress.html
+reports/drift_stress_features.csv
+```
+
+The project treats drift as a production diagnosis problem rather than simply trying to maximize stress-batch accuracy.
+
+---
+
+# 🧠 SHAP Explainability
+
+SHAP is used to interpret the final multiclass tree model.
+
+The project produces:
+
+```text
+reports/shap_per_class.png
+reports/shap_feature_summary.csv
+```
+
+Explainability is performed **per failure class**, rather than collapsing the multiclass model into one global feature ranking.
+
+The goal is to understand:
+
+```text
+Which features influence TWF?
+Which features influence HDF?
+Which features influence PWF?
+Which features influence OSF?
+```
+
+The results are used alongside drift evidence to support retraining decisions.
+
+---
+
+# 🔁 Retraining Decision
+
+The MLOps workflow connects monitoring to an operational decision.
+
+The decision logic considers:
+
+```text
+Data drift
++
+Feature-level evidence
++
+SHAP insights
++
+Failure-mode behavior
+=
+Retraining decision
+```
+
+The stress batch is designed to demonstrate why a model can remain technically valid while becoming less trustworthy under a changed operating distribution.
+
+---
+
+# 🐳 Docker
+
+The application is containerized using two Docker images.
+
+### FastAPI
+
+```text
+Dockerfile.api
+```
+
+### Streamlit
+
+```text
+Dockerfile.dashboard
+```
+
+### Docker Compose
+
+```text
+docker-compose.yml
+```
+
+Run locally:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+Local services:
+
+```text
+Streamlit
+http://localhost:8501
+
+FastAPI
+http://localhost:8000
+
+FastAPI Swagger
+http://localhost:8000/docs
+```
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+The FastAPI Docker image downloads the versioned model artifact from GitHub Release `v1.0.0` during the image build.
+
+---
+
+# 🧪 Automated Testing
+
+Pytest is used for automated validation.
+
+Current tests cover:
+
+- API health endpoint
+- Model information endpoint
+- Prediction endpoint
+- Feature engineering
+
+Run locally:
+
+```bash
+pytest -v
+```
+
+Expected result:
+
+```text
+4 passed
+```
+
+The CI test environment uses a lightweight test model and does not require committing production model artifacts to the repository.
+
+---
+
+# ⚙️ GitHub Actions CI
+
+GitHub Actions automatically runs tests on:
+
+```text
+push → main
+pull_request → main
+```
+
+Workflow:
+
+```text
+GitHub Push
+    ↓
+Checkout Repository
+    ↓
+Set Up Python 3.12
+    ↓
+Install Dependencies
+    ↓
+Run pytest
+    ↓
+CI Result
+```
+
+Workflow file:
+
+```text
+.github/workflows/ci.yml
+```
+
+---
+
+# ☁️ Deployment
+
+The application is deployed to Render using Docker-based Web Services.
+
+### Service 1 — FastAPI
+
+```text
+predictive-maintenance-api
+```
+
+Public API:
+
+```text
+https://predictive-maintenance-mlops-n716.onrender.com
+```
+
+Swagger:
+
+```text
+https://predictive-maintenance-mlops-n716.onrender.com/docs
+```
+
+### Service 2 — Streamlit
+
+```text
+predictive-maintenance-dashboard
+```
+
+Public dashboard:
+
+```text
+https://predictive-maintenance-mlops-1.onrender.com
+```
+
+### Deployment architecture
+
+```text
+                    Render
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+          ▼                       ▼
+   Streamlit Service       FastAPI Service
+          │                       │
+          │ HTTP                  │
+          └──────────►────────────┘
+                                  │
+                                  ▼
+                           XGBoost Model
+                             v1.0.0
+```
+
+The Streamlit service communicates with FastAPI using:
+
+```text
+API_URL
+```
+
+The deployed FastAPI service uses:
+
+```text
+TESTING=0
+```
+
+---
+
+# 🗂️ Project Structure
+
+```text
+predictive-maintenance-mlops/
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+│
+├── api/
+│   ├── __init__.py
+│   └── main.py
+│
+├── dashboard/
+│   └── app.py
+│
+├── data/
+│   ├── train.csv
+│   ├── current.csv
+│   └── stress.csv
+│
+├── models/
+│   ├── best_model.pkl
+│   ├── type_encoder.pkl
+│   └── best_model_metadata.pkl
+│
+├── notebooks/
+│   └── MLOps_Assignment_Completed.ipynb
+│
+├── reports/
+│   ├── drift_current.html
+│   ├── drift_current_features.csv
+│   ├── drift_stress.html
+│   ├── drift_stress_features.csv
+│   ├── model_comparison.csv
+│   ├── shap_feature_summary.csv
+│   └── shap_per_class.png
+│
+├── scripts/
+│   └── package_model.py
+│
+├── src/
+│   ├── data_validation.py
+│   ├── preprocessing.py
+│   ├── train.py
+│   ├── evaluate.py
+│   ├── drift.py
+│   ├── explain.py
+│   └── retrain.py
+│
+├── tests/
+│   ├── test_api.py
+│   └── test_preprocessing.py
+│
+├── .dockerignore
+├── .gitignore
+├── Dockerfile.api
+├── Dockerfile.dashboard
+├── docker-compose.yml
+├── pytest.ini
+├── readme.md
+└── requirements.txt
+```
+
+> Local/generated directories such as `.venv/`, `data/`, `models/`, `mlruns/`, `mlflow.db`, `artifacts/`, and test caches are excluded from Git where appropriate.
+
+---
+
+# 🛠️ Local Setup
+
+## 1. Clone the repository
+
+```bash
+git clone https://github.com/rohithap0819/predictive-maintenance-mlops.git
+cd predictive-maintenance-mlops
+```
+
+## 2. Create a virtual environment
+
+Windows:
+
+```cmd
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+```
+
+## 3. Install dependencies
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+## 4. Run tests
+
+```bash
+pytest -v
+```
+
+## 5. Start FastAPI
+
+```bash
+python -m uvicorn api.main:app --reload
+```
+
+Open:
+
+```text
+http://localhost:8000/docs
+```
+
+## 6. Start Streamlit
+
+In another terminal:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+---
+
+# 🐳 Run Entire Application with Docker
+
+Build:
+
+```bash
+docker compose build
+```
+
+Start:
+
+```bash
+docker compose up -d
+```
+
+Check:
+
+```bash
+docker compose ps
+```
+
+View logs:
+
+```bash
+docker compose logs api
+docker compose logs dashboard
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+---
+
+# 📦 Package a New Model Artifact
+
+After producing new model files in `models/`:
+
+```bash
+python scripts/package_model.py
+```
+
+This creates:
+
+```text
+artifacts/predictive-maintenance-model.zip
+```
+
+The artifact is intentionally ignored by Git and can be uploaded to a versioned GitHub Release.
+
+Example release versions:
+
+```text
+v1.0.0
+v1.1.0
+v2.0.0
+```
+
+This separates application source-code versioning from model-artifact versioning.
+
+---
+
+# 📊 Key Engineering Lessons
+
+### 1. Accuracy can be misleading
+
+With severe class imbalance, a model can achieve high accuracy while performing poorly on rare failure classes.
+
+### 2. SMOTE must be applied carefully
+
+The correct order is:
+
+```text
+Train/Validation Split
+        ↓
+SMOTE on Training Only
+        ↓
+Model Training
+        ↓
+Original Validation Evaluation
+```
+
+### 3. Valid data can still be drifted data
+
+Pandera verifies structural/data validity.
+
+Evidently investigates distributional change.
+
+These solve different problems.
+
+### 4. Rare failure data remains a challenge
+
+TWF has very few real training examples. SMOTE can rebalance the training data, but it cannot create the full real-world diversity of a rare failure mode.
+
+### 5. Explainability should lead to action
+
+SHAP is not included only as a visualization. Feature-level explanations are considered alongside drift evidence when deciding whether retraining may be necessary.
+
+---
+
+# 🔮 Future Improvements
+
+Potential next iterations include:
+
+- Scheduled model retraining
+- Automated model promotion through a registry
+- Cloud object storage for artifacts
+- Secret management
+- Authentication for the prediction API
+- API request logging
+- Model performance monitoring with labelled production outcomes
+- Automated drift-triggered retraining workflows
+- Canary or blue/green model deployment
+- Infrastructure as Code
+- Container image vulnerability scanning
+- Separate staging and production environments
+
+---
+
+# 🧰 Technology Stack
+
+| Area | Technology |
+|---|---|
+| Language | Python 3.12 |
+| Data Processing | Pandas, NumPy |
+| Validation | Pandera |
+| ML | Scikit-learn, XGBoost, LightGBM |
+| Imbalance Handling | imbalanced-learn / SMOTE |
+| Experiment Tracking | MLflow |
+| Hyperparameter Tuning | Optuna |
+| Drift Monitoring | Evidently |
+| Explainability | SHAP |
+| API | FastAPI |
+| Dashboard | Streamlit |
+| Containerization | Docker, Docker Compose |
+| Testing | Pytest |
+| CI | GitHub Actions |
+| Model Versioning | GitHub Releases |
+| Deployment | Render |
+| Version Control | Git / GitHub |
+
+---
+
+# 📈 Project Outcome
+
+This project demonstrates an end-to-end predictive maintenance system rather than only a notebook-based classifier.
+
+It covers:
+
+```text
+Data Validation
+       ↓
+EDA & Feature Engineering
+       ↓
+Class-Imbalance Handling
+       ↓
+Model Comparison
+       ↓
+MLflow Tracking
+       ↓
+Optuna Tuning
+       ↓
+Model Registration
+       ↓
+Model Artifact Versioning
+       ↓
+FastAPI Serving
+       ↓
+Streamlit Dashboard
+       ↓
+Evidently Drift Monitoring
+       ↓
+SHAP Explainability
+       ↓
+Automated Testing
+       ↓
+GitHub Actions CI
+       ↓
+Docker
+       ↓
+Render Deployment
+```
+
+The project demonstrates the complete MLOps lifecycle:
+
+> **Validate → Train → Track → Tune → Monitor → Explain → Decide → Deploy**
+
+---
+
+# 🔗 Links
+
+**GitHub Repository**  
+https://github.com/rohithap0819/predictive-maintenance-mlops
+
+**Live Streamlit Dashboard**  
+https://predictive-maintenance-mlops-1.onrender.com
+
+**Live FastAPI**  
+https://predictive-maintenance-mlops-n716.onrender.com
+
+**FastAPI Swagger Documentation**  
+https://predictive-maintenance-mlops-n716.onrender.com/docs
+
+**Model Release v1.0.0**  
+https://github.com/rohithap0819/predictive-maintenance-mlops/releases/tag/v1.0.0
+
+---
+
+## 👤 Author
+
+**Rohith AP**
+
+GitHub:  
+https://github.com/rohithap0819
+
+---
+
+## 📄 Assignment Context
+
+The original assignment focuses on a local predictive-maintenance MLOps workflow covering data validation, model selection, experiment tracking, Optuna tuning, Evidently monitoring, SHAP explainability, and evidence-based retraining decisions. This repository extends that workflow with API serving, an interactive dashboard, Docker, automated testing, CI, versioned model artifacts, and public deployment.
