@@ -9,10 +9,55 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir --prefer-binary -r requirements.txt
 
+ARG MODEL_VERSION=v1.0.0
+ENV MODEL_VERSION=${MODEL_VERSION}
+
 COPY src ./src
 COPY api ./api
-COPY models ./models
 COPY reports ./reports
+
+RUN mkdir -p models
+
+RUN python - <<'PY'
+from pathlib import Path
+from urllib.request import urlopen
+from zipfile import ZipFile
+from io import BytesIO
+import os
+
+version = os.environ["MODEL_VERSION"]
+
+url = (
+    "https://github.com/rohithap0819/"
+    "predictive-maintenance-mlops/"
+    f"releases/download/{version}/"
+    "predictive-maintenance-model.zip"
+)
+
+print(f"Downloading model artifact: {url}")
+
+with urlopen(url) as response:
+    data = response.read()
+
+with ZipFile(BytesIO(data)) as zip_file:
+    zip_file.extractall("/app/models")
+
+required_files = [
+    "best_model.pkl",
+    "type_encoder.pkl",
+    "best_model_metadata.pkl",
+]
+
+for filename in required_files:
+    path = Path("/app/models") / filename
+
+    if not path.exists():
+        raise RuntimeError(
+            f"Expected model artifact missing: {path}"
+        )
+
+print("Model artifact extracted successfully.")
+PY
 
 EXPOSE 8000
 
